@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Camera Test</title>
+</head>
+<body>
+    <h1>Minimal Camera Test</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <br>
+    <button onclick="startCamera()">Start Camera</button>
+    <div id="status"></div>
+
+    <script>
+        async function startCamera() {
+            const video = document.getElementById('video');
+            const status = document.getElementById('status');
+            
+            try {
+                status.innerHTML = 'Requesting camera...';
+                console.log('Requesting camera access...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                console.log('Camera access granted!');
+                video.srcObject = stream;
+                status.innerHTML = 'Camera working!';
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                status.innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // Auto-start for testing
+        window.onload = () => {
+            console.log('Page loaded, testing camera...');
+            startCamera();
+        };
+    </script>
+</body>
+</html>

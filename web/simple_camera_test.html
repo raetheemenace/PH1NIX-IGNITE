@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Camera Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover {
+            background: #3730a3;
+        }
+        button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #374151;
+        }
+        .error {
+            background: #7f1d1d;
+            border: 1px solid #ef4444;
+        }
+        .success {
+            background: #065f46;
+            border: 1px solid #10b981;
+        }
+        .info {
+            background: #1e3a8a;
+            border: 1px solid #3b82f6;
+        }
+        .debug-info {
+            background: #374151;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Simple Camera Test</h1>
+        
+        <div id="status" class="status info">
+            <strong>Status:</strong> <span id="statusText">Ready to test camera</span>
+        </div>
+        
+        <video id="video" autoplay muted playsinline></video>
+        
+        <div>
+            <button id="test1">Test 1: Basic Camera</button>
+            <button id="test2">Test 2: Specific Resolution</button>
+            <button id="test3">Test 3: Front Camera</button>
+            <button id="stop">Stop Camera</button>
+            <button id="debug">Show Debug Info</button>
+        </div>
+        
+        <div id="debugInfo" class="debug-info" style="display: none;">
+            <h3>Debug Information:</h3>
+            <div id="debugContent"></div>
+        </div>
+        
+        <div id="info" class="status" style="margin-top: 20px;">
+            <h3>Troubleshooting Tips:</h3>
+            <ul>
+                <li><strong>Chrome/Edge:</strong> Make sure you're using HTTPS or localhost</li>
+                <li><strong>Firefox:</strong> Should work on HTTP as well</li>
+                <li><strong>Permission:</strong> Check browser address bar for camera permission</li>
+                <li><strong>Other apps:</strong> Close Zoom, Teams, or other camera apps</li>
+                <li><strong>Privacy:</strong> Check Windows camera privacy settings</li>
+                <li><strong>Browser:</strong> Try a different browser if issues persist</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugContent');
+        
+        let currentStream = null;
+        
+        function updateStatus(message, type = 'info') {
+            statusText.textContent = message;
+            status.className = `status ${type}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => {
+                    console.log('Stopping track:', track.label);
+                    track.stop();
+                });
+                currentStream = null;
+                video.srcObject = null;
+                updateStatus('Camera stopped', 'info');
+            }
+        }
+        
+        async function testCamera(constraints, testName) {
+            stopCamera();
+            
+            updateStatus(`${testName}: Requesting camera access...`, 'info');
+            console.log('Testing with constraints:', constraints);
+            
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia not supported in this browser');
+                }
+                
+                console.log('Calling getUserMedia...');
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log('Stream obtained:', currentStream);
+                console.log('Video tracks:', currentStream.getVideoTracks().length);
+                
+                video.srcObject = currentStream;
+                video.muted = true;
+                video.playsInline = true;
+                
+                // Wait for metadata
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Metadata load timeout after 10 seconds'));
+                    }, 10000);
+                    
+                    video.onloadedmetadata = () => {
+                        clearTimeout(timeout);
+                        console.log('Video metadata loaded:', {
+                            width: video.videoWidth,
+                            height: video.videoHeight,
+                            readyState: video.readyState
+                        });
+                        resolve();
+                    };
+                    
+                    video.onerror = (e) => {
+                        clearTimeout(timeout);
+                        reject(new Error('Video element error'));
+                    };
+                });
+                
+                // Try to play
+                try {
+                    await video.play();
+                    console.log('Video play() succeeded');
+                } catch (playError) {
+                    console.warn('Video play() failed (this is often okay for camera feeds):', playError);
+                }
+                
+                // Verify video dimensions
+                if (video.videoWidth === 0 || video.videoHeight === 0) {
+                    throw new Error('Video dimensions are zero');
+                }
+                
+                updateStatus(`${testName}: SUCCESS! Camera is working (${video.videoWidth}x${video.videoHeight})`, 'success');
+                
+                const videoTracks = currentStream.getVideoTracks();
+                if (videoTracks.length > 0) {
+                    const track = videoTracks[0];
+                    console.log('Video track info:', {
+                        label: track.label,
+                        enabled: track.enabled,
+                        muted: track.muted,
+                        readyState: track.readyState,
+                        settings: track.getSettings()
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                
+                let errorMessage = `${testName}: FAILED - `;
+                
+                switch (error.name) {
+                    case 'NotAllowedError':
+                    case 'PermissionDeniedError':
+                        errorMessage += 'Permission denied. Click the camera icon in the address bar to allow access.';
+                        break;
+                    case 'NotFoundError':
+                    case 'DevicesNotFoundError':
+                        errorMessage += 'No camera found. Please connect a camera.';
+                        break;
+                    case 'NotReadableError':
+                    case 'TrackStartError':
+                        errorMessage += 'Camera is being used by another app. Close other apps and try again.';
+                        break;
+                    case 'OverconstrainedError':
+                    case 'ConstraintNotSatisfiedError':
+                        errorMessage += 'Camera constraints not supported. Try Test 1 (Basic Camera).';
+                        break;
+                    case 'SecurityError':
+                        errorMessage += 'Security error. Make sure you\'re using HTTPS or localhost.';
+                        break;
+                    case 'TypeError':
+                        errorMessage += 'Browser does not support camera API. Try Chrome, Firefox, or Edge.';
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                
+                updateStatus(errorMessage, 'error');
+            }
+        }
+        
+        async function showDebugInfo() {
+            debugInfo.style.display = 'block';
+            
+            let html = '<h4>Browser Information:</h4>';
+            html += `<p>User Agent: ${navigator.userAgent}</p>`;
+            html += `<p>Protocol: ${window.location.protocol}</p>`;
+            html += `<p>Hostname: ${window.location.hostname}</p>`;
+            html += `<p>Secure Context: ${window.isSecureContext}</p>`;
+            html += `<p>getUserMedia Supported: ${!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)}</p>`;
+            
+            if (window.location.protocol !== 'https:' && 
+                window.location.hostname !== 'localhost' && 
+                window.location.hostname !== '127.0.0.1') {
+                html += '<p style="color: #ef4444;"><strong>⚠️ WARNING: Not using HTTPS or localhost. Camera may not work!</strong></p>';
+            }
+            
+            try {
+                html += '<h4>Available Devices:</h4>';
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                if (videoDevices.length === 0) {
+                    html += '<p style="color: #ef4444;">❌ No video input devices found</p>';
+                } else {
+                    html += `<p style="color: #10b981;">✅ Found ${videoDevices.length} camera(s):</p><ul>`;
+                    videoDevices.forEach((device, index) => {
+                        html += `<li>Camera ${index + 1}: ${device.label || 'Unknown Camera'}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                if (currentStream) {
+                    html += '<h4>Current Stream:</h4>';
+                    const tracks = currentStream.getVideoTracks();
+                    html += `<p>Active tracks: ${tracks.length}</p>`;
+                    tracks.forEach((track, i) => {
+                        const settings = track.getSettings();
+                        html += `<p>Track ${i + 1}: ${track.label}</p>`;
+                        html += `<ul>`;
+                        html += `<li>Enabled: ${track.enabled}</li>`;
+                        html += `<li>Muted: ${track.muted}</li>`;
+                        html += `<li>Ready State: ${track.readyState}</li>`;
+                        html += `<li>Resolution: ${settings.width}x${settings.height}</li>`;
+                        html += `<li>Frame Rate: ${settings.frameRate}</li>`;
+                        html += `</ul>`;
+                    });
+                }
+                
+                if (video.srcObject) {
+                    html += '<h4>Video Element:</h4>';
+                    html += `<p>Video Width: ${video.videoWidth}</p>`;
+                    html += `<p>Video Height: ${video.videoHeight}</p>`;
+                    html += `<p>Ready State: ${video.readyState}</p>`;
+                    html += `<p>Paused: ${video.paused}</p>`;
+                    html += `<p>Muted: ${video.muted}</p>`;
+                }
+                
+            } catch (error) {
+                html += `<p style="color: #ef4444;">Error getting debug info: ${error.message}</p>`;
+            }
+            
+            debugContent.innerHTML = html;
+        }
+        
+        // Test 1: Most basic camera request
+        document.getElementById('test1').addEventListener('click', () => {
+            testCamera({ video: true }, 'Test 1 (Basic)');
+        });
+        
+        // Test 2: Specific resolution
+        document.getElementById('test2').addEventListener('click', () => {
+            testCamera({
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                }
+            }, 'Test 2 (640x480)');
+        });
+        
+        // Test 3: Front-facing camera
+        document.getElementById('test3').addEventListener('click', () => {
+            testCamera({
+                video: {
+                    facingMode: 'user'
+                }
+            }, 'Test 3 (Front Camera)');
+        });
+        
+        document.getElementById('stop').addEventListener('click', stopCamera);
+        document.getElementById('debug').addEventListener('click', showDebugInfo);
+        
+        // Initial browser check
+        window.addEventListener('load', () => {
+            console.log('=== Initial Browser Check ===');
+            console.log('Browser:', navigator.userAgent);
+            console.log('Protocol:', window.location.protocol);
+            console.log('Host:', window.location.host);
+            console.log('Secure Context:', window.isSecureContext);
+            console.log('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+            console.log('============================');
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                updateStatus('ERROR: getUserMedia not supported in this browser', 'error');
+            } else if (window.location.protocol !== 'https:' && 
+                       window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1' &&
+                       window.location.hostname !== '') {
+                updateStatus('WARNING: Camera requires HTTPS or localhost. Current: ' + window.location.protocol, 'error');
+            } else {
+                updateStatus('Browser supports camera API. Click a test button to start.', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

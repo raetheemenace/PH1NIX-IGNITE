@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Test - UnMute</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #3730a3;
+        }
+        button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .status.success {
+            background: #065f46;
+            border: 1px solid #10b981;
+        }
+        .status.error {
+            background: #7f1d1d;
+            border: 1px solid #ef4444;
+        }
+        .status.info {
+            background: #1e3a8a;
+            border: 1px solid #3b82f6;
+        }
+        .result {
+            background: #374151;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        canvas {
+            display: none;
+        }
+        .models-info {
+            background: #374151;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .models-info h3 {
+            margin-top: 0;
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Camera Test - UnMute Sign Language Recognition</h1>
+        
+        <div class="models-info">
+            <h3>📊 Available Models</h3>
+            <p><strong>ASL Model:</strong> THANK_YOU, YES, HELP, HOW_ARE_YOU, NO</p>
+            <p><strong>FSL Model:</strong> TULONG, SALAMAT, OO, KUMUSTA_KA_NA, HINDI</p>
+        </div>
+        
+        <div id="status" class="status info">
+            <strong>Status:</strong> <span id="statusText">Ready to initialize camera</span>
+        </div>
+        
+        <div class="video-container">
+            <video id="video" autoplay muted playsinline></video>
+        </div>
+        
+        <div class="controls">
+            <button id="startCamera">Start Camera</button>
+            <button id="captureFrame" disabled>Capture & Recognize (ASL)</button>
+            <button id="captureFSL" disabled>Capture & Recognize (FSL)</button>
+            <button id="stopCamera" disabled>Stop Camera</button>
+            <button id="debugCamera">Debug Camera Info</button>
+        </div>
+        
+        <div id="debugInfo" class="result hidden">
+            <h3>Debug Information:</h3>
+            <div id="debugContent"></div>
+        </div>
+        
+        <div id="result" class="result hidden">
+            <h3>Recognition Result:</h3>
+            <div id="resultContent"></div>
+        </div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const result = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        
+        const startBtn = document.getElementById('startCamera');
+        const captureBtn = document.getElementById('captureFrame');
+        const captureFSLBtn = document.getElementById('captureFSL');
+        const stopBtn = document.getElementById('stopCamera');
+        const debugBtn = document.getElementById('debugCamera');
+        const debugInfo = document.getElementById('debugInfo');
+        const debugContent = document.getElementById('debugContent');
+        
+        let stream = null;
+        let isProcessing = false;
+        
+        // API Configuration
+        const API_URL = 'http://localhost:8000';
+        
+        function updateStatus(message, type = 'info') {
+            statusText.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        async function startCamera() {
+            try {
+                updateStatus('Checking camera availability...', 'info');
+                
+                // First check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera API not supported in this browser');
+                }
+                
+                // Check available devices first
+                updateStatus('Enumerating camera devices...', 'info');
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                console.log('Available video devices:', videoDevices);
+                
+                if (videoDevices.length === 0) {
+                    throw new Error('No camera devices found');
+                }
+                
+                updateStatus(`Found ${videoDevices.length} camera(s). Requesting permission...`, 'info');
+                
+                // Start with basic constraints first
+                let constraints = {
+                    video: true,
+                    audio: false
+                };
+                
+                // Add timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Camera permission request timed out')), 10000);
+                });
+                
+                const getUserMediaPromise = navigator.mediaDevices.getUserMedia(constraints);
+                
+                stream = await Promise.race([getUserMediaPromise, timeoutPromise]);
+                
+                updateStatus('Permission granted! Starting video...', 'info');
+                
+                video.srcObject = stream;
+                
+                // Add multiple event listeners for better debugging
+                video.onloadstart = () => console.log('Video load started');
+                video.onloadeddata = () => console.log('Video data loaded');
+                video.oncanplay = () => console.log('Video can play');
+                video.onplaying = () => console.log('Video is playing');
+                
+                video.onloadedmetadata = () => {
+                    console.log('Video metadata loaded:', {
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        duration: video.duration
+                    });
+                    
+                    updateStatus('Camera active and ready for recognition', 'success');
+                    startBtn.disabled = true;
+                    captureBtn.disabled = false;
+                    captureFSLBtn.disabled = false;
+                    stopBtn.disabled = false;
+                };
+                
+                video.onerror = (e) => {
+                    console.error('Video error:', e);
+                    updateStatus('Video playback error', 'error');
+                };
+                
+                // Force play the video
+                try {
+                    await video.play();
+                    console.log('Video play() succeeded');
+                } catch (playError) {
+                    console.warn('Video play() failed:', playError);
+                    // This is often not critical for camera feeds
+                }
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                let errorMessage = 'Camera access failed: ';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Permission denied. Please allow camera access and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += 'Camera is being used by another application.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMessage += 'Camera constraints not supported. Trying basic settings...';
+                    // Try again with minimal constraints
+                    setTimeout(() => startCameraBasic(), 1000);
+                    return;
+                } else if (error.message.includes('timeout')) {
+                    errorMessage += 'Permission request timed out. Please refresh and try again.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                updateStatus(errorMessage, 'error');
+            }
+        }
+        
+        // Fallback function with minimal constraints
+        async function startCameraBasic() {
+            try {
+                updateStatus('Trying basic camera settings...', 'info');
+                
+                const basicConstraints = {
+                    video: {
+                        width: 640,
+                        height: 480
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    updateStatus('Camera active with basic settings', 'success');
+                    startBtn.disabled = true;
+                    captureBtn.disabled = false;
+                    captureFSLBtn.disabled = false;
+                    stopBtn.disabled = false;
+                };
+                
+            } catch (error) {
+                updateStatus('Even basic camera access failed: ' + error.message, 'error');
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+            }
+            
+            updateStatus('Camera stopped', 'info');
+            startBtn.disabled = false;
+            captureBtn.disabled = true;
+            captureFSLBtn.disabled = true;
+            stopBtn.disabled = true;
+        }
+        
+        function captureFrame() {
+            if (!video.videoWidth || !video.videoHeight) {
+                updateStatus('Video not ready for capture', 'error');
+                return null;
+            }
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        }
+        
+        async function recognizeSign(language = 'ASL') {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            updateStatus(`Processing ${language} recognition...`, 'info');
+            captureBtn.disabled = true;
+            captureFSLBtn.disabled = true;
+            
+            try {
+                const frameData = captureFrame();
+                if (!frameData) {
+                    throw new Error('Failed to capture frame');
+                }
+                
+                const response = await fetch(`${API_URL}/recognize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        frame: frameData,
+                        sign_language: language,
+                        output_language: language === 'ASL' ? 'English' : 'Tagalog',
+                        recent_signs: []
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                displayResult(result, language);
+                
+                if (result.sign && result.confidence > 0.5) {
+                    updateStatus(`Recognized: ${result.sign} (${(result.confidence * 100).toFixed(1)}% confidence)`, 'success');
+                } else {
+                    updateStatus('No sign detected or low confidence', 'info');
+                }
+                
+            } catch (error) {
+                console.error('Recognition error:', error);
+                updateStatus(`Recognition failed: ${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+                captureBtn.disabled = false;
+                captureFSLBtn.disabled = false;
+            }
+        }
+        
+        function displayResult(data, language) {
+            result.classList.remove('hidden');
+            
+            const html = `
+                <p><strong>Language:</strong> ${language}</p>
+                <p><strong>Sign:</strong> ${data.sign || 'None detected'}</p>
+                <p><strong>Confidence:</strong> ${data.confidence ? (data.confidence * 100).toFixed(1) + '%' : 'N/A'}</p>
+                <p><strong>Model Used:</strong> ${data.model_language || 'N/A'}</p>
+                ${data.voice_response ? `
+                    <p><strong>Voice Response:</strong> "${data.voice_response.text}"</p>
+                    <p><strong>Emotion:</strong> ${data.voice_response.emotion}</p>
+                ` : ''}
+                <p><strong>Timestamp:</strong> ${new Date().toLocaleTimeString()}</p>
+            `;
+            
+            resultContent.innerHTML = html;
+        }
+        
+        async function debugCameraInfo() {
+            debugInfo.classList.remove('hidden');
+            
+            let debugHtml = '<h4>Browser Support:</h4>';
+            debugHtml += `<p>getUserMedia supported: ${!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)}</p>`;
+            debugHtml += `<p>User Agent: ${navigator.userAgent}</p>`;
+            debugHtml += `<p>Protocol: ${window.location.protocol}</p>`;
+            debugHtml += `<p>Host: ${window.location.host}</p>`;
+            
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                debugHtml += '<p style="color: #ef4444;"><strong>⚠️ Warning: Camera requires HTTPS or localhost!</strong></p>';
+            }
+            
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                debugHtml += '<h4>Available Cameras:</h4>';
+                if (videoDevices.length === 0) {
+                    debugHtml += '<p style="color: #ef4444;">No video input devices found</p>';
+                } else {
+                    videoDevices.forEach((device, index) => {
+                        debugHtml += `<p>Camera ${index + 1}: ${device.label || 'Unknown Camera'} (ID: ${device.deviceId.substring(0, 20)}...)</p>`;
+                    });
+                }
+                
+                // Test basic camera access
+                debugHtml += '<h4>Permission Test:</h4>';
+                try {
+                    const testStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    debugHtml += '<p style="color: #10b981;">✅ Camera permission granted</p>';
+                    debugHtml += `<p>Video tracks: ${testStream.getVideoTracks().length}</p>`;
+                    
+                    if (testStream.getVideoTracks().length > 0) {
+                        const track = testStream.getVideoTracks()[0];
+                        const settings = track.getSettings();
+                        debugHtml += `<p>Resolution: ${settings.width}x${settings.height}</p>`;
+                        debugHtml += `<p>Frame rate: ${settings.frameRate}</p>`;
+                    }
+                    
+                    // Clean up test stream
+                    testStream.getTracks().forEach(track => track.stop());
+                } catch (error) {
+                    debugHtml += `<p style="color: #ef4444;">❌ Camera permission denied: ${error.message}</p>`;
+                }
+                
+            } catch (error) {
+                debugHtml += `<p style="color: #ef4444;">Error getting device info: ${error.message}</p>`;
+            }
+            
+            debugContent.innerHTML = debugHtml;
+        }
+        
+        // Event listeners
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+        captureBtn.addEventListener('click', () => recognizeSign('ASL'));
+        captureFSLBtn.addEventListener('click', () => recognizeSign('FSL'));
+        debugBtn.addEventListener('click', debugCameraInfo);
+        
+        // Test API connection on load
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_URL}/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('API connected:', data);
+                } else {
+                    updateStatus('Backend API not responding. Make sure the backend is running.', 'error');
+                }
+            } catch (error) {
+                updateStatus('Cannot connect to backend API. Make sure it\'s running on http://localhost:8000', 'error');
+            }
+        }
+        
+        // Test connection when page loads
+        testConnection();
+    </script>
+</body>
+</html>
