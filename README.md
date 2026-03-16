@@ -1,138 +1,217 @@
 # UnMute
-A mobile app that acts as a personal sign language interpreter on your phone. A deaf person places their phone on the desk next to their laptop. The phone watches their signs through the camera and speaks the words out loud. When people in the meeting speak the phone listens and shows the text on screen. It works alongside any meeting platform — Google Meet, Microsoft Teams, Zoom, or even a face-to-face conversation. Nobody else needs to install anything.
 
-| **Decision** | **What We Chose** |
-| --- | --- |
+**UnMute** is a mobile AI companion that acts as a **real-time personal sign language interpreter**.
+
+A deaf user places their phone on the desk beside their laptop during a meeting. The phone’s camera watches their signs and instantly converts them into **spoken words and on-screen text**. When others speak, the phone listens and converts their speech into **live captions** for the deaf user.
+
+---
+
+# The Problem
+
+Millions of deaf individuals face barriers in meetings, classrooms, and everyday conversations. Most existing solutions require:
+
+- Human interpreters  
+- Specialized software  
+- Everyone in the meeting to install tools  
+- Expensive accessibility services  
+
+These solutions make communication **slow, costly, and often inaccessible**.
+
+---
+
+# Our Solution
+
+UnMute turns a smartphone into a **real-time AI interpreter**.
+
+The phone observes sign language, understands context, and converts it instantly into **speech and text**, while also converting spoken language into **live captions** for the deaf user.
+
+This creates **seamless two-way communication** between deaf and hearing individuals.
+
+---
+
+# Key Design Decisions
+
+| Decision | Choice |
+|---|---|
 | Platform | Mobile (React Native + NativeWind) |
 | Backend | Python FastAPI |
 | Database | Supabase (minimal use for hackathon) |
-| Sign Languages | FSL (Filipino Sign Language) + ASL (American Sign Language) |
-| Spoken/Text Languages | Tagalog + English |
-| Signs Per Language | 5 signs each (10 total) |
-| Video Call Approach | Companion app alongside any meeting platform — NOT building our own video call |
-| Screens | 2 only (Home + Session) |
-| Auth/Login | None — app just opens |
-| Saving History | None — everything lives in the moment |
+| Sign Languages | Filipino Sign Language (FSL) + American Sign Language (ASL) |
+| Spoken Languages | Tagalog + English |
+| Video Call Approach | Companion app alongside existing meeting platforms |
 
-# The Five Features
+The app is intentionally **simple, fast, and focused on communication**.
 
-#### **Feature 1: Real-Time Sign Language to Speech and Text**
+---
 
-The deaf person opens the app and points the front camera at themselves. They start signing. The app recognizes the sign almost instantly and does two things — shows the word as text on screen and speaks it out loud through the phone speaker.
+# Core Features
 
-When the phone is sitting next to a laptop running a meeting the laptop microphone picks up the spoken words and sends them into the meeting. Everyone in the meeting hears the deaf person's signs as spoken words without knowing an AI is involved.
+## 1. Real-Time Sign Language → Speech & Text
 
-The AI model that recognizes signs is trained **before** the hackathon. During the hackathon we just load the trained model and use it. Training involves recording ourselves doing each of the 10 signs many times from different angles then letting the AI learn what each sign looks like.
+The user opens the app and points the front camera toward themselves.
 
-The most important thing is speed. The gap between finishing a sign and hearing the spoken word must feel instant. If it is slow the conversation feels broken.
+As they sign, the app:
 
-### **Feature 2: Multi-Language Support**
+1. Detects the gesture using a trained AI model  
+2. Converts the sign into the correct word or phrase  
+3. Displays it as text on screen  
+4. Speaks the message through the phone speaker  
 
-The user picks two things on the home screen. First their sign language — FSL or ASL. Then their preferred output language — Tagalog or English.
+If the phone is placed near a laptop during a meeting, the laptop microphone picks up the spoken output and sends it into the call.
 
-This creates four possible combinations:
+To other participants, it simply sounds like the user is speaking normally.
 
-- FSL signs → Tagalog output
-- FSL signs → English output
-- ASL signs → English output
-- ASL signs → Tagalog output
+The AI model used for sign recognition is **trained before the hackathon** using recorded samples of each sign from multiple angles. During the hackathon, the app simply loads and runs the trained model.
 
-When the AI recognizes a sign it looks up the right translation based on what the user selected. For our 10 signs we have every translation pre-written in a simple lookup table.
+The most important requirement is **speed**. The delay between signing and hearing the spoken word must feel almost instant to keep conversations natural.
 
-For example TULONG in FSL maps to "Kailangan ko ng tulong" in Tagalog and "I need help" in English. The app just picks the right version based on the user's choice.
+---
 
-The user can switch languages anytime during a session and the output adjusts immediately.
+## 2. Multi-Language Support
 
-### **Feature 3: Live Conversation Mode (Two-Way Communication)**
+Users choose two settings on the home screen:
 
-Communication goes both directions.
+- **Sign Language:** FSL or ASL  
+- **Output Language:** Tagalog or English  
 
-**Deaf person → Hearing person:** The camera watches for signs. The AI recognizes them. The app shows the text and speaks the words out loud. The hearing person hears the words either directly from the phone speaker or through the meeting platform.
+This allows four combinations:
 
-**Hearing person → Deaf person:** The phone microphone listens to the hearing person's voice — either from someone nearby or from meeting audio playing through the laptop speaker. The app converts their speech to text and displays it on the phone screen so the deaf person can read what everyone is saying.
+- FSL → Tagalog  
+- FSL → English  
+- ASL → English  
+- ASL → Tagalog  
 
-Both directions feed into the same conversation thread on screen. The deaf person's signs appear as blue text bubbles. The hearing person's speech appears as gray text bubbles. It looks like a chat log but nobody is typing. One person is signing and the other is talking and the app translates between the two in real time.
+When the AI recognizes a sign, it retrieves the correct translation from a **predefined lookup table**.
 
-### **Feature 4: Meeting Integration (Companion App)**
+Example:
 
-This is our **killer feature** and what makes SignVoice different from other sign language apps.
+| Sign | Tagalog Output | English Output |
+|---|---|---|
+| TULONG | Kailangan ko ng tulong | I need help |
 
-Instead of building our own video call system SignVoice works as a **companion** alongside whatever meeting platform the person is already using. Google Meet, Microsoft Teams, Zoom, Webex — it does not matter.
+Users can switch languages **anytime during a session**.
 
-**The setup:**
+---
 
-The deaf person has their laptop open to the meeting. Their phone sits on the desk next to the laptop on a small stand with SignVoice running. The phone camera points at the user. That is the entire setup.
+## 3. Live Two-Way Conversation
 
-**When the deaf person signs:**
+UnMute enables **real-time communication in both directions**.
 
-The phone camera watches their hands. The AI recognizes the signs. The phone speaks the words out loud. Because the phone is near the laptop the laptop microphone picks up the spoken words and sends them into the meeting. Everyone in the meeting hears the deaf person speaking.
+### Deaf → Hearing
 
-From the perspective of other people in the meeting they just hear someone talking. They do not need to install anything. They do not need to know an AI is involved. Everything feels normal.
+1. Camera detects signs  
+2. AI recognizes their meaning  
+3. Text appears on screen  
+4. Speech plays through the phone speaker  
 
-**When people in the meeting speak:**
+### Hearing → Deaf
 
-Their voices come through the laptop speaker. The phone microphone picks up the meeting audio. SignVoice converts the speech to text and shows it on the phone screen. The deaf person reads what everyone is saying.
+1. Phone microphone listens to nearby speech  
+2. Speech-to-text converts it into captions  
+3. Text appears on screen for the deaf user  
 
-**Why this approach is better than building our own video call:**
+Both sides appear in a **conversation thread**, similar to a messaging app.
 
-- Works with every meeting platform that already exists
-- Only the deaf person needs SignVoice — nobody else installs anything
-- No need for IT approval or special setup at work or school
-- Much simpler to build — no video streaming, no servers for calling, no room codes
-- More impressive to judges because it works with tools they already know and use
-- More useful in real life because deaf people cannot choose what meeting platform their company uses
+| Speaker | Display |
+|---|---|
+| Deaf user | Blue message bubbles |
+| Hearing user | Gray message bubbles |
 
- **Future vision we mention in the pitch:**
+No one types anything — the conversation happens **naturally through signing and speech**.
 
-Today it is a companion phone app. In the future it becomes a plugin that runs directly inside Teams, Zoom, and Meet so the deaf person does not even need a second device. The sign recognition would happen through the webcam inside the meeting platform itself.
+---
 
-### **Feature 5: Context Awareness Per Word and Sentence**
+## 4. Context-Aware Translation
 
-The app does not just recognize hand shapes — it understands what the person **means**. This matters because Tagalog has many words that are signed the same way but mean completely different things.
+Recognizing hand shapes alone is not enough. Many Tagalog signs can represent **multiple meanings depending on context**.
 
-**The Tagalog problem — real examples:**
+UnMute analyzes the conversation to determine the correct meaning.
 
-**BASA** can mean "read" (basá) or "wet" (basâ). If the person signed LIBRO (book) before signing BASA the app knows books are involved and picks "read." If they signed ULAN (rain) before BASA the app knows weather is involved and picks "wet."
+### Example: BASA
 
-**BUKAS** can mean "tomorrow" or "open." If the person signed PUPUNTA (will go) before BUKAS the app picks "tomorrow" because it sounds like they are talking about plans. If they signed PINTO (door) before BUKAS the app picks "open" because they are talking about a door.
+"BASA" can mean:
 
-**SUKA** can mean "vinegar" or "vomit." If the conversation has been about cooking the app picks "vinegar." If the conversation has been about feeling sick the app picks "vomit." Imagine telling a doctor you want to vomit but the app says you want vinegar — getting this wrong is not just annoying, it could be dangerous.
+- **Read**
+- **Wet**
 
-**PUSO** can mean "heart" (the organ), "heart" (love), or "banana blossom" (a food). Medical conversation means the organ. Romantic conversation means love. Cooking conversation means the food ingredient.
+Context determines the meaning.
 
-**PATAY** can mean "dead" or "turn off." "My grandfather died" versus "turn off the light" are extremely different messages.
+Examples:
 
-**How the app figures out the right meaning using four clues:**
+LIBRO + BASA → **Read**  
+ULAN + BASA → **Wet**
 
-**Clue 1 — Surrounding signs.** What the person signed right before and right after the ambiguous sign. This is the strongest clue. LIBRO + BASA almost always means "reading a book." ULAN + BASA almost always means "wet from rain."
+### Example: BUKAS
 
-**Clue 2 — Facial expression.** In sign language the face is part of the grammar. SUKA with a disgusted face pointing at the stomach means "vomit." SUKA with a calm face pointing at food means "vinegar." The AI watches the face alongside the hands.
+BUKAS can mean:
 
-**Clue 3 — Conversation history.** If the last several signs were all about health topics and someone signs PUSO the app guesses "heart" as the organ. If the conversation was about cooking it guesses "banana blossom." The longer the conversation goes the better the context gets.
+- **Tomorrow**
+- **Open**
 
-**Clue 4 — Common probability.** When the app has no other clues it goes with the meaning that is statistically most common. This is the weakest clue and gets overridden by any of the other three.
+Context determines the correct interpretation.
 
-**For the hackathon demo** we only need one or two ambiguous signs working. We will show the same sign twice in different contexts and the app gives different correct meanings each time. That single moment proves to judges that our app understands meaning not just hand shapes.
+---
 
-If the app ever gets it wrong there is a small "Did you mean...?" button showing the alternative meaning. The user taps it to correct the app.
+# How Context Detection Works
 
-## **The 10 Signs We're Using**
+The system evaluates four clues:
 
-### **FSL (Filipino Sign Language)**
+### 1. Surrounding Signs
+Words before and after the ambiguous sign provide strong context.
 
-| **Sign** | **Tagalog Output** | **English Output** |
-| --- | --- | --- |
+### 2. Facial Expressions
+Facial expressions are part of sign language grammar.
+
+Example:
+
+- Disgusted expression → "vomit"  
+- Neutral expression → "vinegar"
+
+### 3. Conversation History
+Previous signs influence meaning.
+
+Medical context → "heart (organ)"  
+Romantic context → "heart (love)"
+
+### 4. Probability
+If no other clues exist, the system selects the **most statistically common meaning**.
+
+If the app misinterprets a word, the user can correct it with a **"Did you mean...?"** suggestion.
+
+---
+
+# Sign Dataset Used for Demo
+
+## Filipino Sign Language (FSL)
+
+| Sign | Tagalog Output | English Output |
+|---|---|---|
 | KAMUSTA | Kamusta! | Hello! |
 | SALAMAT | Salamat! | Thank you! |
 | TULONG | Kailangan ko ng tulong | I need help |
 | OO | Oo | Yes |
 | HINDI | Hindi | No |
 
-ASL (American Sign Language)
-| **Sign** | **English Output** | **Tagalog Output** |
-| --- | --- | --- |
-| How Are You | How Are You | Kamusta ka |
+---
+
+## American Sign Language (ASL)
+
+| Sign | English Output | Tagalog Output |
+|---|---|---|
+| How Are You | How are you? | Kamusta ka? |
 | THANK YOU | Thank you! | Salamat! |
 | HELP | I need help | Kailangan ko ng tulong |
 | YES | Yes | Oo |
 | NO | No | Hindi |
+
+---
+
+# Why UnMute Matters
+
+UnMute makes communication **instant, private, and accessible**.
+
+It removes the need for interpreters in everyday situations and allows deaf individuals to participate naturally in meetings, classrooms, and daily conversations.
+
+Our mission is simple:
+
+**No one should be excluded from a conversation because of a communication barrier.**
